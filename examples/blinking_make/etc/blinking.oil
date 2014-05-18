@@ -2,24 +2,13 @@ OSEK OSEK {
 
 OS	ExampleOS {
     STATUS = EXTENDED;
-    ERRORHOOK = TRUE;
+    ERRORHOOK = FALSE;
 };
-
-TASK InitTask {
-    PRIORITY = 1;
-    ACTIVATION = 1;
-    AUTOSTART = TRUE {
-        APPMODE = AppMode1;
-    }
-    STACK = 20480;
-    TYPE = BASIC;
-    SCHEDULE = NON;
-}
 
 TASK TaskA {
     PRIORITY = 5;
     ACTIVATION = 1;
-    STACK = 20480;
+    STACK = 2048;
     TYPE = EXTENDED;
     SCHEDULE = FULL;
     EVENT = Event1;
@@ -32,28 +21,10 @@ TASK TaskA {
 TASK TaskB {
     PRIORITY = 8;
     ACTIVATION = 1;
-    STACK = 20480;
+    STACK = 2048;
     TYPE = BASIC;
     SCHEDULE = FULL;
     RESOURCE = Res1;
-}
-
-TASK TaskC {
-    PRIORITY = 10;
-    ACTIVATION = 1;
-    STACK = 20480;
-    TYPE = BASIC;
-    SCHEDULE = FULL;
-    AUTOSATART = TRUE {
-        APPMODE = AppMode1;
-    }
-}
-
-ALARM ActivateTaskC {
-    COUNTER = SoftwareCounter;
-    ACTION = ACTIVATETASK {
-        TASK = TaskC;
-    }
 }
 
 RESOURCE = Res1;
@@ -89,10 +60,5 @@ ALARM IncrementSWCounter {
 		CYCLETIME = 1;
 	};
 };
-
-ISR IsrName {
-    CATEGORY = 2;
-    ISR = CANRX;
-}
 
 };

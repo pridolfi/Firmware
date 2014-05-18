@@ -1,35 +1,38 @@
-/* Copyright 2008, 2009 Mariano Cerdeiro
- * Copyright 2014, ACSE & CADIEEL
- *      ACSE: http://www.sase.com.ar/asociacion-civil-sistemas-embebidos/ciaa/
- *      CADIEEL: http://www.cadieel.org.ar
+/* Copyright 2008, 2009, Mariano Cerdeiro
  *
- * This file is part of CIAA Firmware.
+ * This file is part of FreeOSEK.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * FreeOSEK is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
+ * Linking FreeOSEK statically or dynamically with other modules is making a
+ * combined work based on FreeOSEK. Thus, the terms and conditions of the GNU
+ * General Public License cover the whole combination.
  *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
+ * In addition, as a special exception, the copyright holders of FreeOSEK give
+ * you permission to combine FreeOSEK program with free software programs or
+ * libraries that are released under the GNU LGPL and with independent modules
+ * that communicate with FreeOSEK solely through the FreeOSEK defined interface.
+ * You may copy and distribute such a system following the terms of the GNU GPL
+ * for FreeOSEK and the licenses of the other code concerned, provided that you
+ * include the source code of that other code when and as the GNU GPL requires
+ * distribution of source code.
  *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
+ * Note that people who make modified versions of FreeOSEK are not obligated to
+ * grant this special exception for their modified versions; it is their choice
+ * whether to do so. The GNU General Public License gives permission to release
+ * a modified version without this exception; this exception also makes it
+ * possible to release a modified version which carries forward this exception.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * FreeOSEK is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with FreeOSEK. If not, see <http://www.gnu.org/licenses/>.
  *
  */
 
@@ -189,13 +192,13 @@
  **/
 #define PostIsr2_Arch(isr)
 
-#if ( CPUTYPE == posix64 )
+#ifdef posix64
 #define SavePosixStack() \
    {                                   \
       /* save actual posix stack */        \
       __asm__ __volatile__ ("movq %%rsp, %%rax; movq %%rax, %0;" : "=g" (PosixStack) : : "rax"); \
    }
-#elif ( CPUTYPE == posix32 )
+#else
 #define SavePosixStack() \
    {                                   \
       /* save actual posix esp */        \
@@ -207,19 +210,19 @@
  **
  ** This macro shall be called before calling any posix system service
  **/
-#if ( CPUTYPE == posix64 )
+#ifdef posix64
 #define PreCallService()      																	               \
-	{                                                                                             \
+	{                                                                                            \
 		/* save osek stack */                                                                     \
 		__asm__ __volatile__ ("movq %%rsp, %%rax; movq %%rax, %0;" : "=g" (OsekStack) : : "rax"); \
 		/* get posix stack */                                                                     \
 		__asm__ __volatile__ ("movq %0, %%rsp;" : : "g" (PosixStack) );                           \
 	}
-#elif ( CPUTYPE == posix32 )
+#else
 #define PreCallService()      																	               \
-	{                                                                                             \
+	{                                                                                            \
 		/* save osek stack */                                                                     \
-		__asm__ __volatile__ ("movl %%esp, %%eax; movl %%eax, %0;" : "=g" (OsekStack) : : "eax"); \
+		__asm__ __volatile__ ("movl %%esp, %%eax; movq %%eax, %0;" : "=g" (OsekStack) : : "eax"); \
 		/* get posix stack */                                                                     \
 		__asm__ __volatile__ ("movl %0, %%esp;" : : "g" (PosixStack) );                           \
 	}
@@ -229,7 +232,7 @@
  **
  ** This macro shall be called after calling any posix system service
  **/
-#if ( CPUTYPE == posix64 )
+#ifdef posix64
 #define PostCallService()                                                                          \
 	{                                                                                               \
       /* save actual posix stack */                                                                \
@@ -237,13 +240,13 @@
 		/* get osek stack */                                                                         \
 		__asm__ __volatile__ ("movq %0, %%rsp;" : : "g" (OsekStack) );                               \
 	}
-#elif ( CPUTYPE == posix32 )
+#else
 #define PostCallService()                                                                          \
 	{                                                                                               \
       /* save actual posix stack */                                                                \
-      __asm__ __volatile__ ("movl %%esp, %%eax; movl %%eax, %0;" : "=g" (PosixStack) : : "eax");   \
+      __asm__ __volatile__ ("movl %%esp, %%eax; movq %%eax, %0;" : "=g" (PosixStack) : : "eax");   \
 		/* get osek stack */                                                                         \
-		__asm__ __volatile__ ("movl %0, %%esp;" : : "g" (OsekStack) );                               \
+		__asm__ __volatile__ ("movq %0, %%esp;" : : "g" (OsekStack) );                               \
 	}
 #endif
 
@@ -297,17 +300,11 @@ extern uint32 OsekHWTimer0;
  ** This variable is used to save the posix stack used to call the system
  ** (linux) services from FreeOSEK
  **/
-#ifdef CPUTYPE
-#if ( CPUTYPE == posix64 )
+#ifdef posix64
 extern uint64 PosixStack;
-#elif ( CPUTYPE == posix32 )
+#else
 extern uint32 PosixStack;
-#else /* #if ( CPUTYPE == posix64 ) */
-#error Unknown CPUTYPE for ARCH posix
-#endif /* #if ( CPUTYPE == posix64 ) */
-#else /* #ifdef CPUTYPE */
-#error CPUTPYE is not defined
-#endif /* #idef CPUTYPE */
+#endif
 
 
 /** \brief Osek Stack
@@ -315,13 +312,11 @@ extern uint32 PosixStack;
  ** This variable is used to save the Osek stack while calling a posix
  ** service
  **/
-#if ( CPUTYPE == posix64 )
+#ifdef posix64
 extern uint64 OsekStack;
-#elif ( CPUTYPE == posix32 )
+#else
 extern uint32 OsekStack;
-#else /* #if ( CPUTYPE == posix64 ) */
-#error Unknown CPUTYPE for ARCH posix
-#endif /* #if ( CPUTYPE == posix64 ) */
+#endif
 
 /*==================[external functions declaration]=========================*/
 /** \brief Posix Interrupt Handler

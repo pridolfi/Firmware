@@ -14,7 +14,7 @@
  * In addition, as a special exception, the copyright holders of FreeOSEK give
  * you permission to combine FreeOSEK program with free software programs or
  * libraries that are released under the GNU LGPL and with independent modules
- * that communicate with FreeOSEK solely through the FreeOSEK defined interface.
+ * that communicate with FreeOSEK solely through the FreeOSEK defined interface. 
  * You may copy and distribute such a system following the terms of the GNU GPL
  * for FreeOSEK and the licenses of the other code concerned, provided that you
  * include the source code of that other code when and as the GNU GPL requires
@@ -25,7 +25,7 @@
  * whether to do so. The GNU General Public License gives permission to release
  * a modified version without this exception; this exception also makes it
  * possible to release a modified version which carries forward this exception.
- *
+ * 
  * FreeOSEK is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -36,36 +36,35 @@
  *
  */
 
-/** \brief FreeOSEK Os StartOS Implementation File
+/** \brief FreeOSEK Os Internal Arch Implementation File
  **
- ** This file implements the StartOS API
- **
- ** \file StartOS.c
- **
+ ** \file arm7/Os_Internal_Arch.c
+ ** \arch arm7
  **/
 
 /** \addtogroup FreeOSEK
  ** @{ */
 /** \addtogroup FreeOSEK_Os
  ** @{ */
-/** \addtogroup FreeOSEK_Os_Global
+/** \addtogroup FreeOSEK_Os_Internal
  ** @{ */
 
 /*
  * Initials     Name
  * ---------------------------
  * MaCe         Mariano Cerdeiro
- * KLi          Kang Li
+ * KT           Tamas Kenderes
  */
 
 /*
  * modification history (new versions first)
  * -----------------------------------------------------------
- * 20090418 v0.1.4 MaCe bugfix function name to StartOS
- * 20090330 v0.1.3 MaCe use ActivateTast instead of AddReady
- * 20090130 v0.1.2 MaCe add OSEK_MEMMAP check
- * 20081113 v0.1.1 KLi  Added memory layout attribute macros
- * 20080810 v0.1.0 MaCe initial version
+ * 20111015 v0.1.3 KT	renamed interrupt handlers, modified
+ * 							TimerIrqHandler_Arch() to use ClearTimerInterrupt_Cpu()
+ * 20090719 v0.1.2 MaCe rename file to Os_
+ * 20090330 v0.1.1 MaCe add NO_EVENTS and NON_PREEMPTIVE evaluation and
+ *								improvement of FIQ_Routine
+ * 20081116 v0.1.0 MaCe initial version
  */
 
 /*==================[inclusions]=============================================*/
@@ -76,6 +75,9 @@
 /*==================[internal data declaration]==============================*/
 
 /*==================[internal functions declaration]=========================*/
+void* Osek_NewTaskPtr_Arch;
+
+void* Osek_OldTaskPtr_Arch;
 
 /*==================[internal data definition]===============================*/
 
@@ -84,78 +86,101 @@
 /*==================[internal functions definition]==========================*/
 
 /*==================[external functions definition]==========================*/
-void StartOS
+void TimerIrqHandler_Arch
 (
-	AppModeType Mode
+	void
 )
 {
-	/* \req OSEK_SYS_3.25 The system service void
-	 ** StartOS ( AppModeType Mode ) shall be defined */
+#if (ALARMS_COUNT != 0)
+	/* to save the context during the interrupt */
+	ContextType context;
+	/* counter increment */
+	//static CounterIncrementType CounterIncrement = 1;
 
-	/* \req OSEK_SYS_3.25.1 This system service shall starts the operating
-	 ** system */
-	uint8f loopi;
+	/* increment the disable interrupt conter to avoid enable the interrupts */
+	SuspendAllInterrupts_Counter++;
 
-	IntSecure_Start();
+	/* save actual context */
+	context = GetCallingContext();
 
-	/* save the aplication mode */
-	ApplicationMode = Mode;
+	/* set context to CONTEXT_DBG */
+	SetActualContext(CONTEXT_DBG);
 
-	/* StartOs_Arch */
-	StartOs_Arch();
+	/* call counter interrupt handler */
+	//CounterIncrement = IncrementCounter(0, 1 /* CounterIncrement */); /* TODO FIXME */
 
+	/* interrupt has to be called first after so many CounterIncrement */
+	/* SetCounterTime(CounterIncrement); */ /* TODO FIXME */
 
-	/* init every task */
-   for( loopi = 0; loopi < TASKS_COUNT; loopi++)
-	{
-		/* \req OSEK_SYS_3.1.2-2/3 The operating system shall ensure that the task
-		 ** code is being executed from the first statement. */
-		SetEntryPoint(loopi); /* set task entry point */
-	}
+	/* set context back */
+	SetActualContext(context);
 
-	/* set sys context */
-	SetActualContext(CONTEXT_SYS);
+	/* set the disable interrupt counter back */
+	SuspendAllInterrupts_Counter--;
+#endif /* #if (ALARMS_COUNT != 0) */
 
-	/* set actual task to invalid task */
-	SetRunningTask(INVALID_TASK);
+	/* clear timer interrupt flag */
+	ClearTimerInterrupt_Cpu();
 
-	/* add to ready the corresponding tasks for this
-    * Application Mode */
-	for (loopi = 0; loopi < AutoStart[Mode].TotalTasks; loopi++)
-	{
-		/* activate task */
-		ActivateTask(AutoStart[Mode].TasksRef[loopi]);
-	}
-
-	for (loopi = 0; loopi < ALARM_AUTOSTART_COUNT; loopi++)
-	{
-		if (AutoStartAlarm[loopi].Mode == Mode)
+#if 0 /* TODO */
+#if (NON_PREEMPTIVE == DISABLE)
+		/* check if interrupt a Task Context */
+		if ( GetCallingContext() ==  CONTEXT_TASK )
 		{
-			(void)SetRelAlarm(AutoStartAlarm[loopi].Alarm, AutoStartAlarm[loopi].AlarmTime, AutoStartAlarm[loopi].AlarmCycleTime);
+			if ( TasksConst[GetRunningTask()].ConstFlags.Preemtive )
+			{
+				/* \req TODO Rescheduling shall take place only if interrupt a
+				 * preemptable task. */
+				(void)Schedule();
+			}
 		}
-	}
-
-#if (HOOK_STARTUPHOOK == ENABLE)
-	StartupHook();
+#endif /* #if (NON_PREEMPTIVE == ENABLE) */
 #endif
-
-	IntSecure_End();
-
-	/* enable all OS interrupts */
-	EnableOSInterrupts();
-
-	/* enable interrupts */
-	EnableInterrupts();
-
-	/* call Scheduler */
-	(void)Schedule();
-
-	/* this function shall never return */
-	while(1);
 }
 
+void DefaultIrqHandler_Arch
+(
+	void
+)
+{
+	while (1);
+}
+
+void DefaultFiqHandler_Arch
+(
+	void
+)
+{
+	while (1);
+}
+
+void DefaultSwiHandler_Arch
+(
+	void
+)
+{
+	while (1);
+}
+
+void DefaultUndefHandler_Arch
+(
+	void
+)
+{
+	while (1);
+}
+
+void DefaultAbortHandler_Arch
+(
+	void
+)
+{
+	while (1);
+}
+
+
 /** @} doxygen end group definition */
 /** @} doxygen end group definition */
-/** @} doxygen endVar group definition */
+/** @} doxygen end group definition */
 /*==================[end of file]============================================*/
 
